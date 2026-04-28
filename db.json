@@ -1,0 +1,15 @@
+{
+  "data": 0,
+  "dataQty": 0,
+  "acc": 0,
+  "accQty": 0,
+  "transfer": 0,
+  "tartunTunai": 0,
+  "tartunSaldo": 0,
+  "pengeluaran": 0,
+  "telegramShift1": 0,
+  "telegramShift1Trx": 0,
+  "telegramShift2": 0,
+  "telegramShift2Trx": 0,
+  "currentShift": "-"
+}
