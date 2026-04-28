@@ -1,21 +1,21 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Laporan Otomatis JSON</title>
+  <title>Laporan Otomatis</title>
   <style>
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: Arial, sans-serif;
       display: flex;
-      background: #f4f4f4;
+      background: #f3f4f6;
     }
 
     .sidebar {
-      width: 220px;
-      background: #111827;
+      width: 250px;
+      background: #0f172a;
       color: white;
       min-height: 100vh;
       padding: 20px;
@@ -23,21 +23,23 @@
 
     .sidebar h2 {
       text-align: center;
+      margin-bottom: 20px;
     }
 
-    .sidebar button {
+    .sidebar button, .sidebar select {
       width: 100%;
       padding: 12px;
-      margin: 5px 0;
+      margin: 6px 0;
       border: none;
-      background: #1f2937;
+      border-radius: 10px;
+      background: #1e293b;
       color: white;
-      border-radius: 8px;
       cursor: pointer;
+      font-size: 16px;
     }
 
     .sidebar button:hover {
-      background: #374151;
+      background: #334155;
     }
 
     .content {
@@ -45,43 +47,65 @@
       padding: 20px;
     }
 
-    .page {
-      display: none;
-    }
-
-    .active {
-      display: block;
-    }
+    .page { display: none; }
+    .active { display: block; }
 
     .card {
       background: white;
       padding: 15px;
-      border-radius: 12px;
+      border-radius: 14px;
       margin-bottom: 15px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
 
     input, select {
       width: 100%;
-      padding: 10px;
+      padding: 12px;
       margin: 8px 0;
-      border-radius: 8px;
       border: 1px solid #ccc;
+      border-radius: 10px;
+      font-size: 16px;
     }
 
-    button.submit {
+    .submit {
       background: #2563eb;
       color: white;
-      padding: 12px;
       border: none;
-      border-radius: 8px;
+      padding: 12px;
+      border-radius: 10px;
       cursor: pointer;
+      width: 100%;
+      margin-top: 8px;
+      font-size: 16px;
+    }
+
+    .danger {
+      background: #dc2626 !important;
     }
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit,minmax(180px,1fr));
+      grid-template-columns: repeat(auto-fit,minmax(220px,1fr));
       gap: 15px;
+    }
+
+    ul {
+      padding-left: 20px;
+    }
+
+    li {
+      margin-bottom: 5px;
+    }
+
+    @media(max-width:768px){
+      body {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+        min-height: auto;
+      }
     }
   </style>
 </head>
@@ -89,6 +113,12 @@
 
 <div class="sidebar">
   <h2>Laporan</h2>
+
+  <select id="globalShift" onchange="changeShift()">
+    <option value="shift1">Shift 1</option>
+    <option value="shift2">Shift 2</option>
+  </select>
+
   <button onclick="showPage('home')">Home</button>
   <button onclick="showPage('data')">Penjualan Data</button>
   <button onclick="showPage('acc')">Penjualan ACC</button>
@@ -96,6 +126,8 @@
   <button onclick="showPage('tartun')">Lap Tarik Tunai</button>
   <button onclick="showPage('pengeluaran')">Lap Pengeluaran</button>
   <button onclick="showPage('telegram')">Lap Telegram</button>
+
+  <button class="danger" onclick="resetDB()">Hapus DB Shift Ini</button>
 </div>
 
 <div class="content">
@@ -103,7 +135,7 @@
   <!-- HOME -->
   <div id="home" class="page active">
     <h1>Dashboard Laporan</h1>
-    <div id="shiftInfo"></div>
+    <h2 id="shiftTitle"></h2>
     <div class="grid" id="dashboard"></div>
   </div>
 
@@ -111,9 +143,9 @@
   <div id="data" class="page">
     <div class="card">
       <h2>Penjualan Data</h2>
-      <input type="number" id="dataNominal" placeholder="Nominal">
-      <input type="number" id="dataQty" placeholder="Quantity">
+      <input type="number" id="dataNominal" placeholder="Masukkan nominal">
       <button class="submit" onclick="saveData()">Simpan</button>
+      <ul id="dataList"></ul>
     </div>
   </div>
 
@@ -121,9 +153,9 @@
   <div id="acc" class="page">
     <div class="card">
       <h2>Penjualan ACC</h2>
-      <input type="number" id="accNominal" placeholder="Nominal">
-      <input type="number" id="accQty" placeholder="Quantity">
+      <input type="number" id="accNominal" placeholder="Masukkan nominal">
       <button class="submit" onclick="saveAcc()">Simpan</button>
+      <ul id="accList"></ul>
     </div>
   </div>
 
@@ -131,8 +163,9 @@
   <div id="transfer" class="page">
     <div class="card">
       <h2>Lap Transfer</h2>
-      <input type="number" id="transferNominal" placeholder="Nominal Transfer">
+      <input type="number" id="transferNominal" placeholder="Masukkan nominal">
       <button class="submit" onclick="saveTransfer()">Simpan</button>
+      <ul id="transferList"></ul>
     </div>
   </div>
 
@@ -144,8 +177,9 @@
         <option value="normal">Normal</option>
         <option value="switch">Switch</option>
       </select>
-      <input type="number" id="tartunNominal" placeholder="Nominal">
+      <input type="number" id="tartunNominal" placeholder="Masukkan nominal">
       <button class="submit" onclick="saveTartun()">Simpan</button>
+      <ul id="tartunList"></ul>
     </div>
   </div>
 
@@ -153,8 +187,9 @@
   <div id="pengeluaran" class="page">
     <div class="card">
       <h2>Lap Pengeluaran</h2>
-      <input type="number" id="pengeluaranNominal" placeholder="Nominal Pengeluaran">
+      <input type="number" id="pengeluaranNominal" placeholder="Masukkan nominal">
       <button class="submit" onclick="savePengeluaran()">Simpan</button>
+      <ul id="pengeluaranList"></ul>
     </div>
   </div>
 
@@ -162,51 +197,35 @@
   <div id="telegram" class="page">
     <div class="card">
       <h2>Lap Telegram</h2>
-      <select id="telegramShift">
-        <option value="1">Shift 1</option>
-        <option value="2">Shift 2</option>
-      </select>
-      <input type="number" id="telegramNominal" placeholder="Nominal Telegram">
-      <input type="number" id="telegramTrx" placeholder="Jumlah TRX">
+      <input type="number" id="telegramNominal" placeholder="Masukkan nominal telegram">
       <button class="submit" onclick="saveTelegram()">Simpan</button>
+      <ul id="telegramList"></ul>
     </div>
   </div>
 
 </div>
 
 <script>
-  let db = {};
+  let currentShift = localStorage.getItem("currentShift") || "shift1";
 
-  async function loadDB() {
-    try {
-      const res = await fetch("db.json");
-      db = await res.json();
-      updateDashboard();
-    } catch {
-      db = {
-        data: 0,
-        dataQty: 0,
-        acc: 0,
-        accQty: 0,
-        transfer: 0,
-        tartunTunai: 0,
-        tartunSaldo: 0,
-        pengeluaran: 0,
-        telegramShift1: 0,
-        telegramShift1Trx: 0,
-        telegramShift2: 0,
-        telegramShift2Trx: 0,
-        currentShift: "-"
-      };
-    }
+  function getDefaultDB() {
+    return {
+      data: [],
+      acc: [],
+      transfer: [],
+      tartun: [],
+      pengeluaran: [],
+      telegram: []
+    };
   }
 
-  function downloadDB() {
-    const blob = new Blob([JSON.stringify(db, null, 2)], {type: "application/json"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "db.json";
-    a.click();
+  function getDB() {
+    return JSON.parse(localStorage.getItem(currentShift)) || getDefaultDB();
+  }
+
+  function saveDB(db) {
+    localStorage.setItem(currentShift, JSON.stringify(db));
+    renderAll();
   }
 
   function showPage(page) {
@@ -214,116 +233,150 @@
     document.getElementById(page).classList.add("active");
   }
 
+  function changeShift() {
+    currentShift = document.getElementById("globalShift").value;
+    localStorage.setItem("currentShift", currentShift);
+    renderAll();
+  }
+
+  function resetDB() {
+    if(confirm("Hapus semua data shift ini?")) {
+      localStorage.removeItem(currentShift);
+      renderAll();
+    }
+  }
+
+  function sum(arr) {
+    return arr.reduce((a,b)=>a+b,0);
+  }
+
   function saveData() {
-    db.data += +document.getElementById("dataNominal").value;
-    db.dataQty += +document.getElementById("dataQty").value;
-    downloadDB();
-    updateDashboard();
+    let db = getDB();
+    let nominal = +document.getElementById("dataNominal").value;
+    if(nominal > 0){
+      db.data.push(nominal);
+      document.getElementById("dataNominal").value = "";
+      saveDB(db);
+    }
   }
 
   function saveAcc() {
-    db.acc += +document.getElementById("accNominal").value;
-    db.accQty += +document.getElementById("accQty").value;
-    downloadDB();
-    updateDashboard();
+    let db = getDB();
+    let nominal = +document.getElementById("accNominal").value;
+    if(nominal > 0){
+      db.acc.push(nominal);
+      document.getElementById("accNominal").value = "";
+      saveDB(db);
+    }
   }
 
   function saveTransfer() {
-    db.transfer += +document.getElementById("transferNominal").value;
-    downloadDB();
-    updateDashboard();
+    let db = getDB();
+    let nominal = +document.getElementById("transferNominal").value;
+    if(nominal > 0){
+      db.transfer.push(nominal);
+      document.getElementById("transferNominal").value = "";
+      saveDB(db);
+    }
   }
 
   function saveTartun() {
+    let db = getDB();
     let nominal = +document.getElementById("tartunNominal").value;
     let mode = document.getElementById("tartunMode").value;
 
-    if (mode === "normal") {
-      if (nominal >= 10000 && nominal <= 299000) {
-        db.tartunTunai += nominal;
-        db.tartunSaldo += nominal - 3000;
-      } else {
-        db.tartunTunai += nominal;
-        db.tartunSaldo += nominal;
-      }
-    }
+    if(nominal > 0){
+      let saldo = nominal;
 
-    if (mode === "switch") {
-      if (nominal >= 10000) {
-        db.tartunTunai += nominal;
-        db.tartunSaldo += nominal - 5000;
-      } else {
-        db.tartunTunai += nominal;
-        db.tartunSaldo += nominal;
+      if(mode === "normal" && nominal >= 10000 && nominal <= 299000){
+        saldo = nominal - 3000;
       }
-    }
 
-    downloadDB();
-    updateDashboard();
+      if(mode === "switch" && nominal >= 10000){
+        saldo = nominal - 5000;
+      }
+
+      db.tartun.push({
+        tunai: nominal,
+        saldo: saldo,
+        mode: mode
+      });
+
+      document.getElementById("tartunNominal").value = "";
+      saveDB(db);
+    }
   }
 
   function savePengeluaran() {
-    db.pengeluaran += +document.getElementById("pengeluaranNominal").value;
-    downloadDB();
-    updateDashboard();
+    let db = getDB();
+    let nominal = +document.getElementById("pengeluaranNominal").value;
+    if(nominal > 0){
+      db.pengeluaran.push(nominal);
+      document.getElementById("pengeluaranNominal").value = "";
+      saveDB(db);
+    }
   }
 
   function saveTelegram() {
-    let shift = document.getElementById("telegramShift").value;
+    let db = getDB();
     let nominal = +document.getElementById("telegramNominal").value;
-    let trx = +document.getElementById("telegramTrx").value;
-
-    db.currentShift = shift;
-
-    if (shift == "1") {
-      db.telegramShift1 = nominal;
-      db.telegramShift1Trx = trx;
-    } else {
-      db.telegramShift2 = nominal;
-      db.telegramShift2Trx = trx;
+    if(nominal > 0){
+      db.telegram.push(nominal);
+      document.getElementById("telegramNominal").value = "";
+      saveDB(db);
     }
-
-    downloadDB();
-    updateDashboard();
   }
 
-  function updateDashboard() {
-    let telegramTotal = 0;
-    let telegramTrx = 0;
+  function renderList(id, arr, prefix="Rp ") {
+    document.getElementById(id).innerHTML =
+      arr.map(item => {
+        if(typeof item === "object"){
+          return `<li>${item.mode.toUpperCase()} | Tunai: Rp ${item.tunai.toLocaleString()} | Saldo: Rp ${item.saldo.toLocaleString()}</li>`;
+        }
+        return `<li>${prefix}${item.toLocaleString()}</li>`;
+      }).join("");
+  }
 
-    if (db.currentShift == "1") {
-      telegramTotal = db.telegramShift1;
-      telegramTrx = db.telegramShift1Trx;
-    }
+  function renderAll() {
+    document.getElementById("globalShift").value = currentShift;
 
-    if (db.currentShift == "2") {
-      telegramTotal = db.telegramShift2 - db.telegramShift1;
-      telegramTrx = db.telegramShift2Trx - db.telegramShift1Trx;
-    }
+    let db = getDB();
 
-    let total = db.data + db.acc + telegramTotal;
-    let tartun = db.tartunTunai + db.tartunSaldo;
-    let setor = total - tartun - db.pengeluaran;
-    let totalTrx = db.dataQty + db.accQty + telegramTrx;
+    let totalData = sum(db.data);
+    let totalAcc = sum(db.acc);
+    let totalTransfer = sum(db.transfer);
+    let totalPengeluaran = sum(db.pengeluaran);
+    let totalTelegram = sum(db.telegram);
 
-    document.getElementById("shiftInfo").innerHTML = `<h3>Laporan Shift ${db.currentShift}</h3>`;
+    let totalTartun = db.tartun.reduce((a,b)=>a + b.tunai + b.saldo,0);
+
+    let total = totalData + totalAcc + totalTelegram;
+    let setor = total - totalTartun - totalPengeluaran;
+    let totalTrx = db.data.length + db.acc.length + db.telegram.length;
+
+    document.getElementById("shiftTitle").innerText =
+      `Laporan ${currentShift === "shift1" ? "Shift 1" : "Shift 2"}`;
 
     document.getElementById("dashboard").innerHTML = `
-      <div class="card">Data: Rp ${db.data.toLocaleString()}</div>
-      <div class="card">ACC: Rp ${db.acc.toLocaleString()}</div>
-      <div class="card">Telegram: Rp ${telegramTotal.toLocaleString()}</div>
+      <div class="card">Data: Rp ${totalData.toLocaleString()}</div>
+      <div class="card">ACC: Rp ${totalAcc.toLocaleString()}</div>
+      <div class="card">Telegram: Rp ${totalTelegram.toLocaleString()}</div>
       <div class="card">TOTAL: Rp ${total.toLocaleString()}</div>
-      <div class="card">Tarik Tunai: Rp ${db.tartunTunai.toLocaleString()}</div>
-      <div class="card">Tarik Saldo: Rp ${db.tartunSaldo.toLocaleString()}</div>
-      <div class="card">TARTUN: Rp ${tartun.toLocaleString()}</div>
-      <div class="card">Pengeluaran: Rp ${db.pengeluaran.toLocaleString()}</div>
+      <div class="card">TARTUN: Rp ${totalTartun.toLocaleString()}</div>
+      <div class="card">Pengeluaran: Rp ${totalPengeluaran.toLocaleString()}</div>
       <div class="card">SETOR: Rp ${setor.toLocaleString()}</div>
       <div class="card">Total TRX: ${totalTrx}</div>
-      <div class="card">TRX Telegram: ${telegramTrx}</div>
     `;
+
+    renderList("dataList", db.data);
+    renderList("accList", db.acc);
+    renderList("transferList", db.transfer);
+    renderList("tartunList", db.tartun);
+    renderList("pengeluaranList", db.pengeluaran);
+    renderList("telegramList", db.telegram);
   }
 
-  loadDB();
+  renderAll();
 </script>
 
 </body>
