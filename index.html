@@ -61,23 +61,23 @@
 
     input, select {
       width: 100%;
-      padding: 12px;
+      padding: 14px;
       margin: 8px 0;
       border: 1px solid #ccc;
       border-radius: 10px;
-      font-size: 16px;
+      font-size: 18px;
     }
 
     .submit {
       background: #2563eb;
       color: white;
       border: none;
-      padding: 12px;
+      padding: 14px;
       border-radius: 10px;
       cursor: pointer;
       width: 100%;
       margin-top: 8px;
-      font-size: 16px;
+      font-size: 18px;
     }
 
     .danger {
@@ -173,7 +173,7 @@
   <div id="data" class="page">
     <div class="card">
       <h2>Penjualan Data</h2>
-      <input type="text" id="dataNominal" placeholder="Masukkan nominal">
+      <input type="tel" inputmode="numeric" pattern="[0-9.,]*" id="dataNominal" placeholder="Masukkan nominal" onkeydown="handleEnter(event, saveData)">
       <button class="submit" onclick="saveData()">Simpan</button>
       <ul id="dataList"></ul>
     </div>
@@ -182,7 +182,7 @@
   <div id="acc" class="page">
     <div class="card">
       <h2>Penjualan ACC</h2>
-      <input type="text" id="accNominal" placeholder="Masukkan nominal">
+      <input type="tel" inputmode="numeric" pattern="[0-9.,]*" id="accNominal" placeholder="Masukkan nominal" onkeydown="handleEnter(event, saveAcc)">
       <button class="submit" onclick="saveAcc()">Simpan</button>
       <ul id="accList"></ul>
     </div>
@@ -191,7 +191,7 @@
   <div id="transfer" class="page">
     <div class="card">
       <h2>Lap Transfer</h2>
-      <input type="text" id="transferNominal" placeholder="Masukkan nominal">
+      <input type="tel" inputmode="numeric" pattern="[0-9.,]*" id="transferNominal" placeholder="Masukkan nominal" onkeydown="handleEnter(event, saveTransfer)">
       <button class="submit" onclick="saveTransfer()">Simpan</button>
       <ul id="transferList"></ul>
     </div>
@@ -204,7 +204,7 @@
         <option value="normal">Normal</option>
         <option value="switch">Switch</option>
       </select>
-      <input type="text" id="tartunNominal" placeholder="Masukkan nominal">
+      <input type="tel" inputmode="numeric" pattern="[0-9.,]*" id="tartunNominal" placeholder="Masukkan nominal" onkeydown="handleEnter(event, saveTartun)">
       <button class="submit" onclick="saveTartun()">Simpan</button>
       <ul id="tartunList"></ul>
     </div>
@@ -213,7 +213,7 @@
   <div id="pengeluaran" class="page">
     <div class="card">
       <h2>Lap Pengeluaran</h2>
-      <input type="text" id="pengeluaranNominal" placeholder="Masukkan nominal">
+      <input type="tel" inputmode="numeric" pattern="[0-9.,]*" id="pengeluaranNominal" placeholder="Masukkan nominal" onkeydown="handleEnter(event, savePengeluaran)">
       <button class="submit" onclick="savePengeluaran()">Simpan</button>
       <ul id="pengeluaranList"></ul>
     </div>
@@ -222,8 +222,8 @@
   <div id="telegram" class="page">
     <div class="card">
       <h2>Lap Telegram</h2>
-      <input type="text" id="telegramNominal" placeholder="Masukkan total telegram">
-      <input type="number" id="telegramQty" placeholder="Masukkan quantity / trx telegram">
+      <input type="tel" inputmode="numeric" pattern="[0-9.,]*" id="telegramNominal" placeholder="Masukkan total telegram">
+      <input type="tel" inputmode="numeric" pattern="[0-9]*" id="telegramQty" placeholder="Masukkan quantity / trx telegram" onkeydown="handleEnter(event, saveTelegram)">
       <button class="submit" onclick="saveTelegram()">Simpan / Update</button>
       <button class="submit danger" onclick="resetTelegram()">Hapus Telegram</button>
       <ul id="telegramList"></ul>
@@ -234,6 +234,13 @@
 
 <script>
   let currentShift = localStorage.getItem("currentShift") || "shift1";
+
+  function handleEnter(event, callback) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      callback();
+    }
+  }
 
   function getDefaultDB() {
     return {
@@ -289,7 +296,6 @@
     }
 
     if (mode === "cepat") {
-
       if (value.includes(".")) {
         let parts = value.split(".");
         let depan = parts[0];
@@ -494,8 +500,6 @@
   }
 
   function renderAll() {
-    document.getElementById("globalShift").value = currentShift;
-
     let db = getDB();
 
     let totalData = sum(db.data);
@@ -555,6 +559,19 @@
       <li>Total: Rp ${telegramNominal.toLocaleString()} | Qty: ${telegramQty}</li>
     `;
   }
+
+  document.querySelectorAll('input[type="tel"]').forEach(input => {
+    input.addEventListener("input", function() {
+      this.value = this.value.replace(/[^0-9.,]/g, "");
+    });
+  });
+
+  document.getElementById("telegramNominal").addEventListener("keydown", function(e){
+    if(e.key === "Enter"){
+      e.preventDefault();
+      document.getElementById("telegramQty").focus();
+    }
+  });
 
   renderAll();
 </script>
