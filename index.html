@@ -1,0 +1,330 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laporan Otomatis JSON</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      background: #f4f4f4;
+    }
+
+    .sidebar {
+      width: 220px;
+      background: #111827;
+      color: white;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .sidebar h2 {
+      text-align: center;
+    }
+
+    .sidebar button {
+      width: 100%;
+      padding: 12px;
+      margin: 5px 0;
+      border: none;
+      background: #1f2937;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .sidebar button:hover {
+      background: #374151;
+    }
+
+    .content {
+      flex: 1;
+      padding: 20px;
+    }
+
+    .page {
+      display: none;
+    }
+
+    .active {
+      display: block;
+    }
+
+    .card {
+      background: white;
+      padding: 15px;
+      border-radius: 12px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+
+    button.submit {
+      background: #2563eb;
+      color: white;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit,minmax(180px,1fr));
+      gap: 15px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="sidebar">
+  <h2>Laporan</h2>
+  <button onclick="showPage('home')">Home</button>
+  <button onclick="showPage('data')">Penjualan Data</button>
+  <button onclick="showPage('acc')">Penjualan ACC</button>
+  <button onclick="showPage('transfer')">Lap Transfer</button>
+  <button onclick="showPage('tartun')">Lap Tarik Tunai</button>
+  <button onclick="showPage('pengeluaran')">Lap Pengeluaran</button>
+  <button onclick="showPage('telegram')">Lap Telegram</button>
+</div>
+
+<div class="content">
+
+  <!-- HOME -->
+  <div id="home" class="page active">
+    <h1>Dashboard Laporan</h1>
+    <div id="shiftInfo"></div>
+    <div class="grid" id="dashboard"></div>
+  </div>
+
+  <!-- DATA -->
+  <div id="data" class="page">
+    <div class="card">
+      <h2>Penjualan Data</h2>
+      <input type="number" id="dataNominal" placeholder="Nominal">
+      <input type="number" id="dataQty" placeholder="Quantity">
+      <button class="submit" onclick="saveData()">Simpan</button>
+    </div>
+  </div>
+
+  <!-- ACC -->
+  <div id="acc" class="page">
+    <div class="card">
+      <h2>Penjualan ACC</h2>
+      <input type="number" id="accNominal" placeholder="Nominal">
+      <input type="number" id="accQty" placeholder="Quantity">
+      <button class="submit" onclick="saveAcc()">Simpan</button>
+    </div>
+  </div>
+
+  <!-- TRANSFER -->
+  <div id="transfer" class="page">
+    <div class="card">
+      <h2>Lap Transfer</h2>
+      <input type="number" id="transferNominal" placeholder="Nominal Transfer">
+      <button class="submit" onclick="saveTransfer()">Simpan</button>
+    </div>
+  </div>
+
+  <!-- TARTUN -->
+  <div id="tartun" class="page">
+    <div class="card">
+      <h2>Lap Tarik Tunai</h2>
+      <select id="tartunMode">
+        <option value="normal">Normal</option>
+        <option value="switch">Switch</option>
+      </select>
+      <input type="number" id="tartunNominal" placeholder="Nominal">
+      <button class="submit" onclick="saveTartun()">Simpan</button>
+    </div>
+  </div>
+
+  <!-- PENGELUARAN -->
+  <div id="pengeluaran" class="page">
+    <div class="card">
+      <h2>Lap Pengeluaran</h2>
+      <input type="number" id="pengeluaranNominal" placeholder="Nominal Pengeluaran">
+      <button class="submit" onclick="savePengeluaran()">Simpan</button>
+    </div>
+  </div>
+
+  <!-- TELEGRAM -->
+  <div id="telegram" class="page">
+    <div class="card">
+      <h2>Lap Telegram</h2>
+      <select id="telegramShift">
+        <option value="1">Shift 1</option>
+        <option value="2">Shift 2</option>
+      </select>
+      <input type="number" id="telegramNominal" placeholder="Nominal Telegram">
+      <input type="number" id="telegramTrx" placeholder="Jumlah TRX">
+      <button class="submit" onclick="saveTelegram()">Simpan</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let db = {};
+
+  async function loadDB() {
+    try {
+      const res = await fetch("db.json");
+      db = await res.json();
+      updateDashboard();
+    } catch {
+      db = {
+        data: 0,
+        dataQty: 0,
+        acc: 0,
+        accQty: 0,
+        transfer: 0,
+        tartunTunai: 0,
+        tartunSaldo: 0,
+        pengeluaran: 0,
+        telegramShift1: 0,
+        telegramShift1Trx: 0,
+        telegramShift2: 0,
+        telegramShift2Trx: 0,
+        currentShift: "-"
+      };
+    }
+  }
+
+  function downloadDB() {
+    const blob = new Blob([JSON.stringify(db, null, 2)], {type: "application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "db.json";
+    a.click();
+  }
+
+  function showPage(page) {
+    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+    document.getElementById(page).classList.add("active");
+  }
+
+  function saveData() {
+    db.data += +document.getElementById("dataNominal").value;
+    db.dataQty += +document.getElementById("dataQty").value;
+    downloadDB();
+    updateDashboard();
+  }
+
+  function saveAcc() {
+    db.acc += +document.getElementById("accNominal").value;
+    db.accQty += +document.getElementById("accQty").value;
+    downloadDB();
+    updateDashboard();
+  }
+
+  function saveTransfer() {
+    db.transfer += +document.getElementById("transferNominal").value;
+    downloadDB();
+    updateDashboard();
+  }
+
+  function saveTartun() {
+    let nominal = +document.getElementById("tartunNominal").value;
+    let mode = document.getElementById("tartunMode").value;
+
+    if (mode === "normal") {
+      if (nominal >= 10000 && nominal <= 299000) {
+        db.tartunTunai += nominal;
+        db.tartunSaldo += nominal - 3000;
+      } else {
+        db.tartunTunai += nominal;
+        db.tartunSaldo += nominal;
+      }
+    }
+
+    if (mode === "switch") {
+      if (nominal >= 10000) {
+        db.tartunTunai += nominal;
+        db.tartunSaldo += nominal - 5000;
+      } else {
+        db.tartunTunai += nominal;
+        db.tartunSaldo += nominal;
+      }
+    }
+
+    downloadDB();
+    updateDashboard();
+  }
+
+  function savePengeluaran() {
+    db.pengeluaran += +document.getElementById("pengeluaranNominal").value;
+    downloadDB();
+    updateDashboard();
+  }
+
+  function saveTelegram() {
+    let shift = document.getElementById("telegramShift").value;
+    let nominal = +document.getElementById("telegramNominal").value;
+    let trx = +document.getElementById("telegramTrx").value;
+
+    db.currentShift = shift;
+
+    if (shift == "1") {
+      db.telegramShift1 = nominal;
+      db.telegramShift1Trx = trx;
+    } else {
+      db.telegramShift2 = nominal;
+      db.telegramShift2Trx = trx;
+    }
+
+    downloadDB();
+    updateDashboard();
+  }
+
+  function updateDashboard() {
+    let telegramTotal = 0;
+    let telegramTrx = 0;
+
+    if (db.currentShift == "1") {
+      telegramTotal = db.telegramShift1;
+      telegramTrx = db.telegramShift1Trx;
+    }
+
+    if (db.currentShift == "2") {
+      telegramTotal = db.telegramShift2 - db.telegramShift1;
+      telegramTrx = db.telegramShift2Trx - db.telegramShift1Trx;
+    }
+
+    let total = db.data + db.acc + telegramTotal;
+    let tartun = db.tartunTunai + db.tartunSaldo;
+    let setor = total - tartun - db.pengeluaran;
+    let totalTrx = db.dataQty + db.accQty + telegramTrx;
+
+    document.getElementById("shiftInfo").innerHTML = `<h3>Laporan Shift ${db.currentShift}</h3>`;
+
+    document.getElementById("dashboard").innerHTML = `
+      <div class="card">Data: Rp ${db.data.toLocaleString()}</div>
+      <div class="card">ACC: Rp ${db.acc.toLocaleString()}</div>
+      <div class="card">Telegram: Rp ${telegramTotal.toLocaleString()}</div>
+      <div class="card">TOTAL: Rp ${total.toLocaleString()}</div>
+      <div class="card">Tarik Tunai: Rp ${db.tartunTunai.toLocaleString()}</div>
+      <div class="card">Tarik Saldo: Rp ${db.tartunSaldo.toLocaleString()}</div>
+      <div class="card">TARTUN: Rp ${tartun.toLocaleString()}</div>
+      <div class="card">Pengeluaran: Rp ${db.pengeluaran.toLocaleString()}</div>
+      <div class="card">SETOR: Rp ${setor.toLocaleString()}</div>
+      <div class="card">Total TRX: ${totalTrx}</div>
+      <div class="card">TRX Telegram: ${telegramTrx}</div>
+    `;
+  }
+
+  loadDB();
+</script>
+
+</body>
+</html>
