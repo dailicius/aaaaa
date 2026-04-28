@@ -118,15 +118,24 @@
       margin-bottom: 8px;
     }
 
-    @media(max-width:768px){
-      body {
-        flex-direction: column;
-      }
+    /* Sync status badge */
+    #syncStatus {
+      display: inline-block;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      margin-bottom: 10px;
+      font-weight: bold;
+      width: 100%;
+      text-align: center;
+    }
+    .sync-ok { background: #22c55e; color: white; }
+    .sync-saving { background: #f59e0b; color: white; }
+    .sync-error { background: #ef4444; color: white; }
 
-      .sidebar {
-        width: 100%;
-        min-height: auto;
-      }
+    @media(max-width:768px){
+      body { flex-direction: column; }
+      .sidebar { width: 100%; min-height: auto; }
     }
   </style>
 </head>
@@ -134,6 +143,8 @@
 
 <div class="sidebar">
   <h2>Laporan</h2>
+
+  <span id="syncStatus" class="sync-ok">⚡ Shared DB</span>
 
   <select id="globalShift" onchange="changeShift()">
     <option value="shift1">Shift 1</option>
@@ -155,6 +166,7 @@
   <button onclick="showPage('telegram')">Lap Telegram</button>
 
   <button class="danger" onclick="resetDB()">Hapus DB Shift Ini</button>
+  <button onclick="manualRefresh()" style="background:#0ea5e9;">🔄 Refresh Data</button>
 </div>
 
 <div class="content">
@@ -233,13 +245,18 @@
 </div>
 
 <script>
+  // ── SHIFT STATE (per-user, not shared) ──────────────────────────────────────
   let currentShift = localStorage.getItem("currentShift") || "shift1";
+  document.getElementById("globalShift").value = currentShift;
 
-  function handleEnter(event, callback) {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      callback();
-    }
+  // ── SHARED STORAGE HELPERS ──────────────────────────────────────────────────
+  // Uses window.storage (shared=true) so ALL users see the same data.
+
+  function setSyncStatus(state) {
+    const el = document.getElementById("syncStatus");
+    if (state === "saving") { el.className = "sync-saving"; el.textContent = "💾 Menyimpan..."; }
+    else if (state === "error") { el.className = "sync-error"; el.textContent = "❌ Gagal Simpan"; }
+    else { el.className = "sync-ok"; el.textContent = "✅ Tersinkronisasi"; }
   }
 
   function getDefaultDB() {
@@ -253,18 +270,36 @@
     };
   }
 
-  function getDB() {
-    return JSON.parse(localStorage.getItem(currentShift)) || getDefaultDB();
+  async function getDB(shift) {
+    shift = shift || currentShift;
+    try {
+      const result = await window.storage.get("laporan:" + shift, true); // shared=true
+      return result ? JSON.parse(result.value) : getDefaultDB();
+    } catch(e) {
+      return getDefaultDB();
+    }
   }
 
-  function saveDB(db) {
-    localStorage.setItem(currentShift, JSON.stringify(db));
-    renderAll();
+  async function saveDB(db, shift) {
+    shift = shift || currentShift;
+    setSyncStatus("saving");
+    try {
+      await window.storage.set("laporan:" + shift, JSON.stringify(db), true); // shared=true
+      setSyncStatus("ok");
+    } catch(e) {
+      setSyncStatus("error");
+      console.error("Gagal simpan shared storage:", e);
+    }
+    await renderAll();
   }
 
-  function sum(arr) {
-    return arr.reduce((a,b)=>a+b,0);
+  // ── UTILITIES ───────────────────────────────────────────────────────────────
+
+  function handleEnter(event, callback) {
+    if (event.key === "Enter") { event.preventDefault(); callback(); }
   }
+
+  function sum(arr) { return arr.reduce((a,b)=>a+b,0); }
 
   function showPage(page) {
     document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
@@ -277,18 +312,21 @@
     renderAll();
   }
 
-  function resetDB() {
-    if(confirm("Hapus semua data shift ini?")) {
-      localStorage.removeItem(currentShift);
-      renderAll();
+  async function resetDB() {
+    if(confirm("Hapus semua data shift ini? (Akan terhapus untuk semua user)")) {
+      await saveDB(getDefaultDB());
     }
+  }
+
+  async function manualRefresh() {
+    setSyncStatus("saving");
+    await renderAll();
+    setSyncStatus("ok");
   }
 
   function parseNominal(value) {
     let mode = document.getElementById("inputMode").value;
-
     if (!value) return 0;
-
     value = value.toString().replace(/,/g, ".").trim();
 
     if (mode === "normal") {
@@ -300,46 +338,45 @@
         let parts = value.split(".");
         let depan = parts[0];
         let belakang = parts[1] || "";
-
         if (belakang.length === 1) return parseInt(depan + belakang + "00");
         if (belakang.length === 2) return parseInt(depan + belakang + "0");
         if (belakang.length === 3) return parseInt(depan + belakang);
         if (belakang.length >= 4) return parseInt((depan + belakang) + "000");
       }
-
       return parseInt(value) * 1000;
     }
-
     return 0;
   }
 
-  function saveData() {
-    let db = getDB();
+  // ── SAVE ACTIONS ────────────────────────────────────────────────────────────
+
+  async function saveData() {
+    let db = await getDB();
     let nominal = parseNominal(document.getElementById("dataNominal").value);
     if(nominal > 0){
       db.data.push(nominal);
       document.getElementById("dataNominal").value = "";
-      saveDB(db);
+      await saveDB(db);
     }
   }
 
-  function saveAcc() {
-    let db = getDB();
+  async function saveAcc() {
+    let db = await getDB();
     let nominal = parseNominal(document.getElementById("accNominal").value);
     if(nominal > 0){
       db.acc.push(nominal);
       document.getElementById("accNominal").value = "";
-      saveDB(db);
+      await saveDB(db);
     }
   }
 
-  function saveTransfer() {
-    let db = getDB();
+  async function saveTransfer() {
+    let db = await getDB();
     let nominal = parseNominal(document.getElementById("transferNominal").value);
     if(nominal > 0){
       db.transfer.push(nominal);
       document.getElementById("transferNominal").value = "";
-      saveDB(db);
+      await saveDB(db);
     }
   }
 
@@ -350,19 +387,17 @@
       if (nominal >= 500000 && nominal <= 999000) return 7500;
       if (nominal >= 1000000 && nominal <= 2000000) return 10000;
     }
-
     if (mode === "switch") {
       if (nominal >= 10000 && nominal <= 299000) return 5000;
       if (nominal >= 300000 && nominal <= 499000) return 10000;
       if (nominal >= 500000 && nominal <= 999000) return 17500;
       if (nominal >= 1000000 && nominal <= 2000000) return 32500;
     }
-
     return 0;
   }
 
-  function saveTartun() {
-    let db = getDB();
+  async function saveTartun() {
+    let db = await getDB();
     let nominal = parseNominal(document.getElementById("tartunNominal").value);
     let mode = document.getElementById("tartunMode").value;
 
@@ -372,135 +407,103 @@
     }
 
     let admin = getTartunAdmin(mode, nominal);
-
-    db.tartun.push({
-      tunai: nominal,
-      saldo: nominal - admin,
-      mode: mode
-    });
-
+    db.tartun.push({ tunai: nominal, saldo: nominal - admin, mode: mode });
     document.getElementById("tartunNominal").value = "";
-    saveDB(db);
+    await saveDB(db);
   }
 
-  function savePengeluaran() {
-    let db = getDB();
+  async function savePengeluaran() {
+    let db = await getDB();
     let nominal = parseNominal(document.getElementById("pengeluaranNominal").value);
     if(nominal > 0){
       db.pengeluaran.push(nominal);
       document.getElementById("pengeluaranNominal").value = "";
-      saveDB(db);
+      await saveDB(db);
     }
   }
 
-  function saveTelegram() {
-    let db = getDB();
-
+  async function saveTelegram() {
+    let db = await getDB();
     let nominal = parseNominal(document.getElementById("telegramNominal").value);
     let qty = +document.getElementById("telegramQty").value;
-
     if (nominal >= 0 && qty >= 0) {
-      db.telegram = {
-        nominal: nominal,
-        qty: qty
-      };
-
+      db.telegram = { nominal, qty };
       document.getElementById("telegramNominal").value = "";
       document.getElementById("telegramQty").value = "";
-
-      saveDB(db);
+      await saveDB(db);
     }
   }
 
-  function resetTelegram() {
-    let db = getDB();
-
+  async function resetTelegram() {
+    let db = await getDB();
     if(confirm("Hapus data telegram shift ini?")) {
       db.telegram = { nominal: 0, qty: 0 };
-      saveDB(db);
+      await saveDB(db);
     }
   }
 
-  function deleteItem(type, index) {
-    let db = getDB();
+  async function deleteItem(type, index) {
+    let db = await getDB();
     if(confirm("Hapus data ini?")) {
       db[type].splice(index, 1);
-      saveDB(db);
+      await saveDB(db);
     }
   }
 
-  function editItem(type, index) {
-    let db = getDB();
+  async function editItem(type, index) {
+    let db = await getDB();
     let newValue = prompt("Edit nominal:", db[type][index]);
-
     if(newValue !== null){
       let nominal = parseNominal(newValue);
-      if(nominal >= 0){
-        db[type][index] = nominal;
-        saveDB(db);
-      }
+      if(nominal >= 0){ db[type][index] = nominal; await saveDB(db); }
     }
   }
 
-  function editTartun(index) {
-    let db = getDB();
+  async function editTartun(index) {
+    let db = await getDB();
     let item = db.tartun[index];
-
     let newNominal = prompt("Edit nominal tartun:", item.tunai);
-
     if(newNominal === null) return;
-
     let nominal = parseNominal(newNominal);
-
     if (nominal < 10000 || nominal > 2000000) {
       alert("Nominal tarik tunai minimal 10.000 dan maksimal 2.000.000");
       return;
     }
-
     let admin = getTartunAdmin(item.mode, nominal);
-
-    db.tartun[index] = {
-      tunai: nominal,
-      saldo: nominal - admin,
-      mode: item.mode
-    };
-
-    saveDB(db);
+    db.tartun[index] = { tunai: nominal, saldo: nominal - admin, mode: item.mode };
+    await saveDB(db);
   }
 
-  function deleteTartun(index) {
-    let db = getDB();
+  async function deleteTartun(index) {
+    let db = await getDB();
     if(confirm("Hapus tartun ini?")) {
       db.tartun.splice(index, 1);
-      saveDB(db);
+      await saveDB(db);
     }
   }
+
+  // ── RENDER ──────────────────────────────────────────────────────────────────
 
   function renderList(id, arr, type) {
     document.getElementById(id).innerHTML =
       arr.map((item, index) => {
         if(typeof item === "object"){
-          return `
-            <li>
-              ${item.mode.toUpperCase()} | Tunai: Rp ${item.tunai.toLocaleString()} | Saldo: Rp ${item.saldo.toLocaleString()}
-              <button class="edit" onclick="editTartun(${index})">Edit</button>
-              <button class="hapus" onclick="deleteTartun(${index})">Hapus</button>
-            </li>
-          `;
+          return `<li>
+            ${item.mode.toUpperCase()} | Tunai: Rp ${item.tunai.toLocaleString()} | Saldo: Rp ${item.saldo.toLocaleString()}
+            <button class="edit" onclick="editTartun(${index})">Edit</button>
+            <button class="hapus" onclick="deleteTartun(${index})">Hapus</button>
+          </li>`;
         }
-
-        return `
-          <li>
-            Rp ${item.toLocaleString()}
-            <button class="edit" onclick="editItem('${type}', ${index})">Edit</button>
-            <button class="hapus" onclick="deleteItem('${type}', ${index})">Hapus</button>
-          </li>
-        `;
+        return `<li>
+          Rp ${item.toLocaleString()}
+          <button class="edit" onclick="editItem('${type}', ${index})">Edit</button>
+          <button class="hapus" onclick="deleteItem('${type}', ${index})">Hapus</button>
+        </li>`;
       }).join("");
   }
 
-  function renderAll() {
-    let db = getDB();
+  async function renderAll() {
+    let db = await getDB(currentShift);
 
     let totalData = sum(db.data);
     let totalAcc = sum(db.acc);
@@ -511,21 +514,18 @@
     let telegramQty = db.telegram.qty;
 
     if (currentShift === "shift2") {
-      let shift1 = JSON.parse(localStorage.getItem("shift1")) || getDefaultDB();
-
+      let shift1 = await getDB("shift1");
       telegramNominal = db.telegram.nominal - shift1.telegram.nominal;
       telegramQty = db.telegram.qty - shift1.telegram.qty;
-
       if (telegramNominal < 0) telegramNominal = 0;
       if (telegramQty < 0) telegramQty = 0;
     }
 
-    let totalTartun = db.tartun.reduce((a,b)=>a+b.tunai+b.saldo,0);
-    let totalTarikNominal = db.tartun.reduce((a,b)=>a+b.tunai,0);
+    let totalTartun = db.tartun.reduce((a,b)=>a+b.tunai+b.saldo, 0);
+    let totalTarikNominal = db.tartun.reduce((a,b)=>a+b.tunai, 0);
 
     let total = totalData + totalAcc + telegramNominal;
     let setor = total - totalTartun - totalPengeluaran;
-
     let totalTrx = db.data.length + db.acc.length + telegramQty + db.transfer.length + db.tartun.length;
 
     document.getElementById("shiftTitle").innerText =
@@ -560,6 +560,8 @@
     `;
   }
 
+  // ── INIT ────────────────────────────────────────────────────────────────────
+
   document.querySelectorAll('input[type="tel"]').forEach(input => {
     input.addEventListener("input", function() {
       this.value = this.value.replace(/[^0-9.,]/g, "");
@@ -567,11 +569,11 @@
   });
 
   document.getElementById("telegramNominal").addEventListener("keydown", function(e){
-    if(e.key === "Enter"){
-      e.preventDefault();
-      document.getElementById("telegramQty").focus();
-    }
+    if(e.key === "Enter"){ e.preventDefault(); document.getElementById("telegramQty").focus(); }
   });
+
+  // Auto-refresh every 15 seconds to sync changes from other users
+  setInterval(() => { renderAll(); }, 15000);
 
   renderAll();
 </script>
