@@ -141,6 +141,7 @@
   </select>
 
   <button onclick="showPage('home')">Home</button>
+  <button onclick="showPage('quantity')">Total Quantity</button>
   <button onclick="showPage('data')">Penjualan Data</button>
   <button onclick="showPage('acc')">Penjualan ACC</button>
   <button onclick="showPage('transfer')">Lap Transfer</button>
@@ -158,6 +159,12 @@
     <h1>Dashboard Laporan</h1>
     <h2 id="shiftTitle"></h2>
     <div class="grid" id="dashboard"></div>
+  </div>
+
+  <!-- QUANTITY -->
+  <div id="quantity" class="page">
+    <h1>Total Quantity Shift</h1>
+    <div class="grid" id="quantityDashboard"></div>
   </div>
 
   <!-- DATA -->
@@ -309,31 +316,44 @@
     }
   }
 
+  function getTartunAdmin(mode, nominal) {
+    if (mode === "normal") {
+      if (nominal >= 10000 && nominal <= 299000) return 3000;
+      if (nominal >= 300000 && nominal <= 499000) return 5000;
+      if (nominal >= 500000 && nominal <= 999000) return 7500;
+      if (nominal >= 1000000 && nominal <= 2000000) return 10000;
+    }
+
+    if (mode === "switch") {
+      if (nominal >= 10000 && nominal <= 299000) return 5000;
+      if (nominal >= 300000 && nominal <= 499000) return 10000;
+      if (nominal >= 500000 && nominal <= 999000) return 17500;
+      if (nominal >= 1000000 && nominal <= 2000000) return 32500;
+    }
+
+    return 0;
+  }
+
   function saveTartun() {
     let db = getDB();
     let nominal = +document.getElementById("tartunNominal").value;
     let mode = document.getElementById("tartunMode").value;
 
-    if(nominal > 0){
-      let saldo = nominal;
-
-      if(mode === "normal" && nominal >= 10000 && nominal <= 299000){
-        saldo = nominal - 3000;
-      }
-
-      if(mode === "switch" && nominal >= 10000){
-        saldo = nominal - 5000;
-      }
-
-      db.tartun.push({
-        tunai: nominal,
-        saldo: saldo,
-        mode: mode
-      });
-
-      document.getElementById("tartunNominal").value = "";
-      saveDB(db);
+    if (nominal < 10000 || nominal > 2000000) {
+      alert("Nominal tarik tunai minimal 10.000 dan maksimal 2.000.000");
+      return;
     }
+
+    let admin = getTartunAdmin(mode, nominal);
+
+    db.tartun.push({
+      tunai: nominal,
+      saldo: nominal - admin,
+      mode: mode
+    });
+
+    document.getElementById("tartunNominal").value = "";
+    saveDB(db);
   }
 
   function savePengeluaran() {
@@ -405,26 +425,24 @@
 
     let newNominal = prompt("Edit nominal tartun:", item.tunai);
 
-    if(newNominal !== null && !isNaN(newNominal) && +newNominal > 0){
-      let nominal = +newNominal;
-      let saldo = nominal;
+    if(newNominal === null) return;
 
-      if(item.mode === "normal" && nominal >= 10000 && nominal <= 299000){
-        saldo = nominal - 3000;
-      }
+    let nominal = +newNominal;
 
-      if(item.mode === "switch" && nominal >= 10000){
-        saldo = nominal - 5000;
-      }
-
-      db.tartun[index] = {
-        tunai: nominal,
-        saldo: saldo,
-        mode: item.mode
-      };
-
-      saveDB(db);
+    if (nominal < 10000 || nominal > 2000000) {
+      alert("Nominal tarik tunai minimal 10.000 dan maksimal 2.000.000");
+      return;
     }
+
+    let admin = getTartunAdmin(item.mode, nominal);
+
+    db.tartun[index] = {
+      tunai: nominal,
+      saldo: nominal - admin,
+      mode: item.mode
+    };
+
+    saveDB(db);
   }
 
   function deleteTartun(index) {
@@ -466,14 +484,17 @@
 
     let totalData = sum(db.data);
     let totalAcc = sum(db.acc);
+    let totalTfNominal = sum(db.transfer);
     let totalPengeluaran = sum(db.pengeluaran);
     let totalTelegram = db.telegram.nominal;
 
     let totalTartun = db.tartun.reduce((a,b)=>a+b.tunai+b.saldo,0);
+    let totalTarikNominal = db.tartun.reduce((a,b)=>a+b.tunai,0);
 
     let total = totalData + totalAcc + totalTelegram;
     let setor = total - totalTartun - totalPengeluaran;
-    let totalTrx = db.data.length + db.acc.length + db.telegram.qty;
+
+    let totalTrx = db.data.length + db.acc.length + db.telegram.qty + db.transfer.length + db.tartun.length;
 
     document.getElementById("shiftTitle").innerText =
       `Laporan ${currentShift === "shift1" ? "Shift 1" : "Shift 2"}`;
@@ -487,6 +508,13 @@
       <div class="card">Pengeluaran: Rp ${totalPengeluaran.toLocaleString()}</div>
       <div class="card">SETOR: Rp ${setor.toLocaleString()}</div>
       <div class="card">Total TRX: ${totalTrx}</div>
+    `;
+
+    document.getElementById("quantityDashboard").innerHTML = `
+      <div class="card">Data: Rp ${totalData.toLocaleString()} (${db.data.length})</div>
+      <div class="card">TF: Rp ${totalTfNominal.toLocaleString()} (${db.transfer.length})</div>
+      <div class="card">Tarik: Rp ${totalTarikNominal.toLocaleString()} (${db.tartun.length})</div>
+      <div class="card">TOTAL Quantity: ${db.data.length + db.transfer.length + db.tartun.length}</div>
     `;
 
     renderList("dataList", db.data, "data");
