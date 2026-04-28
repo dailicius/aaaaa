@@ -15,7 +15,7 @@
     }
 
     .sidebar {
-      width: 260px;
+      width: 270px;
       background: #0f172a;
       color: white;
       min-height: 100vh;
@@ -140,6 +140,11 @@
     <option value="shift2">Shift 2</option>
   </select>
 
+  <select id="inputMode">
+    <option value="normal">Input Normal</option>
+    <option value="cepat">Input Cepat</option>
+  </select>
+
   <button onclick="showPage('home')">Home</button>
   <button onclick="showPage('quantity')">Total Quantity</button>
   <button onclick="showPage('data')">Penjualan Data</button>
@@ -154,50 +159,44 @@
 
 <div class="content">
 
-  <!-- HOME -->
   <div id="home" class="page active">
     <h1>Dashboard Laporan</h1>
     <h2 id="shiftTitle"></h2>
     <div class="grid" id="dashboard"></div>
   </div>
 
-  <!-- QUANTITY -->
   <div id="quantity" class="page">
     <h1>Total Quantity Shift</h1>
     <div class="grid" id="quantityDashboard"></div>
   </div>
 
-  <!-- DATA -->
   <div id="data" class="page">
     <div class="card">
       <h2>Penjualan Data</h2>
-      <input type="number" id="dataNominal" placeholder="Masukkan nominal">
+      <input type="text" id="dataNominal" placeholder="Masukkan nominal">
       <button class="submit" onclick="saveData()">Simpan</button>
       <ul id="dataList"></ul>
     </div>
   </div>
 
-  <!-- ACC -->
   <div id="acc" class="page">
     <div class="card">
       <h2>Penjualan ACC</h2>
-      <input type="number" id="accNominal" placeholder="Masukkan nominal">
+      <input type="text" id="accNominal" placeholder="Masukkan nominal">
       <button class="submit" onclick="saveAcc()">Simpan</button>
       <ul id="accList"></ul>
     </div>
   </div>
 
-  <!-- TRANSFER -->
   <div id="transfer" class="page">
     <div class="card">
       <h2>Lap Transfer</h2>
-      <input type="number" id="transferNominal" placeholder="Masukkan nominal">
+      <input type="text" id="transferNominal" placeholder="Masukkan nominal">
       <button class="submit" onclick="saveTransfer()">Simpan</button>
       <ul id="transferList"></ul>
     </div>
   </div>
 
-  <!-- TARTUN -->
   <div id="tartun" class="page">
     <div class="card">
       <h2>Lap Tarik Tunai</h2>
@@ -205,27 +204,25 @@
         <option value="normal">Normal</option>
         <option value="switch">Switch</option>
       </select>
-      <input type="number" id="tartunNominal" placeholder="Masukkan nominal">
+      <input type="text" id="tartunNominal" placeholder="Masukkan nominal">
       <button class="submit" onclick="saveTartun()">Simpan</button>
       <ul id="tartunList"></ul>
     </div>
   </div>
 
-  <!-- PENGELUARAN -->
   <div id="pengeluaran" class="page">
     <div class="card">
       <h2>Lap Pengeluaran</h2>
-      <input type="number" id="pengeluaranNominal" placeholder="Masukkan nominal">
+      <input type="text" id="pengeluaranNominal" placeholder="Masukkan nominal">
       <button class="submit" onclick="savePengeluaran()">Simpan</button>
       <ul id="pengeluaranList"></ul>
     </div>
   </div>
 
-  <!-- TELEGRAM -->
   <div id="telegram" class="page">
     <div class="card">
       <h2>Lap Telegram</h2>
-      <input type="number" id="telegramNominal" placeholder="Masukkan total telegram">
+      <input type="text" id="telegramNominal" placeholder="Masukkan total telegram">
       <input type="number" id="telegramQty" placeholder="Masukkan quantity / trx telegram">
       <button class="submit" onclick="saveTelegram()">Simpan / Update</button>
       <button class="submit danger" onclick="resetTelegram()">Hapus Telegram</button>
@@ -245,10 +242,7 @@
       transfer: [],
       tartun: [],
       pengeluaran: [],
-      telegram: {
-        nominal: 0,
-        qty: 0
-      }
+      telegram: { nominal: 0, qty: 0 }
     };
   }
 
@@ -283,10 +277,39 @@
     }
   }
 
+  function parseNominal(value) {
+    let mode = document.getElementById("inputMode").value;
+
+    if (!value) return 0;
+
+    value = value.toString().replace(/,/g, ".").trim();
+
+    if (mode === "normal") {
+      return parseInt(value.replace(/\./g, "")) || 0;
+    }
+
+    if (mode === "cepat") {
+
+      if (value.includes(".")) {
+        let parts = value.split(".");
+        let depan = parts[0];
+        let belakang = parts[1] || "";
+
+        if (belakang.length === 1) return parseInt(depan + belakang + "00");
+        if (belakang.length === 2) return parseInt(depan + belakang + "0");
+        if (belakang.length === 3) return parseInt(depan + belakang);
+        if (belakang.length >= 4) return parseInt((depan + belakang) + "000");
+      }
+
+      return parseInt(value) * 1000;
+    }
+
+    return 0;
+  }
+
   function saveData() {
     let db = getDB();
-    let nominal = +document.getElementById("dataNominal").value;
-
+    let nominal = parseNominal(document.getElementById("dataNominal").value);
     if(nominal > 0){
       db.data.push(nominal);
       document.getElementById("dataNominal").value = "";
@@ -296,8 +319,7 @@
 
   function saveAcc() {
     let db = getDB();
-    let nominal = +document.getElementById("accNominal").value;
-
+    let nominal = parseNominal(document.getElementById("accNominal").value);
     if(nominal > 0){
       db.acc.push(nominal);
       document.getElementById("accNominal").value = "";
@@ -307,8 +329,7 @@
 
   function saveTransfer() {
     let db = getDB();
-    let nominal = +document.getElementById("transferNominal").value;
-
+    let nominal = parseNominal(document.getElementById("transferNominal").value);
     if(nominal > 0){
       db.transfer.push(nominal);
       document.getElementById("transferNominal").value = "";
@@ -336,7 +357,7 @@
 
   function saveTartun() {
     let db = getDB();
-    let nominal = +document.getElementById("tartunNominal").value;
+    let nominal = parseNominal(document.getElementById("tartunNominal").value);
     let mode = document.getElementById("tartunMode").value;
 
     if (nominal < 10000 || nominal > 2000000) {
@@ -358,8 +379,7 @@
 
   function savePengeluaran() {
     let db = getDB();
-    let nominal = +document.getElementById("pengeluaranNominal").value;
-
+    let nominal = parseNominal(document.getElementById("pengeluaranNominal").value);
     if(nominal > 0){
       db.pengeluaran.push(nominal);
       document.getElementById("pengeluaranNominal").value = "";
@@ -370,7 +390,7 @@
   function saveTelegram() {
     let db = getDB();
 
-    let nominal = +document.getElementById("telegramNominal").value;
+    let nominal = parseNominal(document.getElementById("telegramNominal").value);
     let qty = +document.getElementById("telegramQty").value;
 
     if (nominal >= 0 && qty >= 0) {
@@ -390,18 +410,13 @@
     let db = getDB();
 
     if(confirm("Hapus data telegram shift ini?")) {
-      db.telegram = {
-        nominal: 0,
-        qty: 0
-      };
-
+      db.telegram = { nominal: 0, qty: 0 };
       saveDB(db);
     }
   }
 
   function deleteItem(type, index) {
     let db = getDB();
-
     if(confirm("Hapus data ini?")) {
       db[type].splice(index, 1);
       saveDB(db);
@@ -410,12 +425,14 @@
 
   function editItem(type, index) {
     let db = getDB();
-
     let newValue = prompt("Edit nominal:", db[type][index]);
 
-    if(newValue !== null && !isNaN(newValue) && +newValue >= 0){
-      db[type][index] = +newValue;
-      saveDB(db);
+    if(newValue !== null){
+      let nominal = parseNominal(newValue);
+      if(nominal >= 0){
+        db[type][index] = nominal;
+        saveDB(db);
+      }
     }
   }
 
@@ -427,7 +444,7 @@
 
     if(newNominal === null) return;
 
-    let nominal = +newNominal;
+    let nominal = parseNominal(newNominal);
 
     if (nominal < 10000 || nominal > 2000000) {
       alert("Nominal tarik tunai minimal 10.000 dan maksimal 2.000.000");
@@ -447,7 +464,6 @@
 
   function deleteTartun(index) {
     let db = getDB();
-
     if(confirm("Hapus tartun ini?")) {
       db.tartun.splice(index, 1);
       saveDB(db);
@@ -486,15 +502,27 @@
     let totalAcc = sum(db.acc);
     let totalTfNominal = sum(db.transfer);
     let totalPengeluaran = sum(db.pengeluaran);
-    let totalTelegram = db.telegram.nominal;
+
+    let telegramNominal = db.telegram.nominal;
+    let telegramQty = db.telegram.qty;
+
+    if (currentShift === "shift2") {
+      let shift1 = JSON.parse(localStorage.getItem("shift1")) || getDefaultDB();
+
+      telegramNominal = db.telegram.nominal - shift1.telegram.nominal;
+      telegramQty = db.telegram.qty - shift1.telegram.qty;
+
+      if (telegramNominal < 0) telegramNominal = 0;
+      if (telegramQty < 0) telegramQty = 0;
+    }
 
     let totalTartun = db.tartun.reduce((a,b)=>a+b.tunai+b.saldo,0);
     let totalTarikNominal = db.tartun.reduce((a,b)=>a+b.tunai,0);
 
-    let total = totalData + totalAcc + totalTelegram;
+    let total = totalData + totalAcc + telegramNominal;
     let setor = total - totalTartun - totalPengeluaran;
 
-    let totalTrx = db.data.length + db.acc.length + db.telegram.qty + db.transfer.length + db.tartun.length;
+    let totalTrx = db.data.length + db.acc.length + telegramQty + db.transfer.length + db.tartun.length;
 
     document.getElementById("shiftTitle").innerText =
       `Laporan ${currentShift === "shift1" ? "Shift 1" : "Shift 2"}`;
@@ -502,7 +530,7 @@
     document.getElementById("dashboard").innerHTML = `
       <div class="card">Data: Rp ${totalData.toLocaleString()}</div>
       <div class="card">ACC: Rp ${totalAcc.toLocaleString()}</div>
-      <div class="card">Telegram: Rp ${totalTelegram.toLocaleString()}</div>
+      <div class="card">Telegram: Rp ${telegramNominal.toLocaleString()}</div>
       <div class="card">TOTAL: Rp ${total.toLocaleString()}</div>
       <div class="card">TARTUN: Rp ${totalTartun.toLocaleString()}</div>
       <div class="card">Pengeluaran: Rp ${totalPengeluaran.toLocaleString()}</div>
@@ -524,7 +552,7 @@
     renderList("pengeluaranList", db.pengeluaran, "pengeluaran");
 
     document.getElementById("telegramList").innerHTML = `
-      <li>Total: Rp ${db.telegram.nominal.toLocaleString()} | Qty: ${db.telegram.qty}</li>
+      <li>Total: Rp ${telegramNominal.toLocaleString()} | Qty: ${telegramQty}</li>
     `;
   }
 
